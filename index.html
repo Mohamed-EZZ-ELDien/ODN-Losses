@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ODN Loss Budget Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0c1a26; --panel:#12233333; --panel-solid:#142a3a; --line:#24445c;
+  --cyan:#3ec9e8; --cyan-dim:#2a7d94; --amber:#f2a93c; --red:#ef5a5a; --green:#4fd18b;
+  --text:#eaf3f7; --text-dim:#93aebd; --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans','Segoe UI',sans-serif;
+  padding-top: env(safe-area-inset-top,0px); padding-bottom: env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; min-height:100%; background:
+    radial-gradient(1200px 600px at 80% -10%, #163247 0%, transparent 60%),
+    var(--ink);
+  color:var(--text); font-family:var(--sans); line-height:1.5;
+}
+header{
+  padding:2.2rem 1.5rem 1.4rem; max-width:1180px; margin:0 auto;
+}
+header h1{margin:0 0 .35rem; font-size:clamp(1.5rem,3vw,2.1rem); font-weight:700; letter-spacing:-.01em}
+header p{margin:0; color:var(--text-dim); font-size:.95rem; max-width:64ch}
+
+.wrap{max-width:1180px; margin:0 auto; padding:0 1.5rem 3rem}
+
+.diagram{
+  background:linear-gradient(180deg,#173347,#122a3a); border:1px solid var(--line);
+  border-radius:14px; padding:1rem; margin-bottom:1.4rem; text-align:center;
+}
+.diagram svg.topo{display:block; width:100%; height:auto; border-radius:8px; background:#fff; padding:.5rem; box-sizing:border-box}
+.diagram-caption{display:block; margin-top:.6rem; font-size:.78rem; color:var(--text-dim)}
+
+.settings{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:.9rem;
+  background:linear-gradient(180deg,#173347,#122a3a); border:1px solid var(--line);
+  border-radius:14px; padding:1.2rem; margin-bottom:1.6rem;
+}
+.field{display:flex; flex-direction:column; gap:.35rem}
+.field label{font-size:.78rem; color:var(--text-dim)}
+.field input, .field select{
+  background:#0d1e2b; border:1px solid var(--line); color:var(--text);
+  border-radius:8px; padding:.55rem .6rem; font-family:var(--mono); font-size:.92rem;
+}
+.field input:focus, .field select:focus{outline:2px solid var(--cyan); outline-offset:1px}
+
+.diagram svg.topo{display:block; width:100%; height:auto; border-radius:8px; background:#fff; padding:.5rem; box-sizing:border-box}
+.chain{position:relative; overflow-x:auto; padding-bottom:.6rem}
+.chain-row{display:flex; align-items:flex-start; gap:0; min-width:max-content; position:relative}
+.box{
+  width:300px; flex:0 0 300px; background:var(--panel-solid); border:2px dashed #1ea7e6;
+  border-radius:14px; padding:.7rem .85rem .9rem; position:relative;
+}
+.box h2{margin:0 0 .5rem; font-size:.95rem; font-weight:700; color:#e9f6fd; text-align:center}
+.link{flex:0 0 96px}
+.row{display:grid; grid-template-columns:1fr; gap:.55rem; margin-bottom:.5rem}
+.row label{font-size:.74rem; color:var(--text-dim); display:block; margin-bottom:.2rem}
+.row input{
+  width:100%; background:#0d1e2b; border:1px solid var(--line); color:var(--text);
+  border-radius:7px; padding:.42rem .55rem; font-family:var(--mono); font-size:.88rem;
+}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:.5rem}
+.drw{display:block; width:100%; height:auto; margin-top:.4rem}
+.drw .conn-label{font:600 9px var(--mono); fill:var(--amber); text-anchor:middle}
+.drw .t-n{font:500 12px var(--sans); fill:#dcebf3}
+.drw .t-g{font:500 10.5px var(--sans); fill:var(--text-dim)}
+.drw .t-loss{font:600 11.5px var(--mono); fill:#ff5d5d}
+.drw .t-in{font:700 12px var(--mono); fill:#4fe39b}
+.lk-lbl{font:600 10.5px var(--mono); fill:#ff5d5d; text-anchor:middle}
+.drw .t-pwr{font:800 13px var(--mono); fill:#4fe39b; text-anchor:middle}
+.drw .pill{fill:#0d1e2b; stroke:#2f8f66; stroke-width:1.4}
+.summary{
+  margin-top:2rem; background:linear-gradient(180deg,#173347,#122a3a); border:1px solid var(--line);
+  border-radius:14px; padding:1.3rem 1.4rem;
+}
+.summary h2{margin:0 0 1rem; font-size:1.05rem}
+table{width:100%; border-collapse:collapse; font-size:.88rem}
+th,td{text-align:right; padding:.5rem .6rem; border-bottom:1px solid var(--line)}
+th{color:var(--text-dim); font-weight:500; font-size:.76rem}
+td.num{font-family:var(--mono); color:#4fe39b; font-weight:700}
+.bar-cell{width:22%; min-width:110px}
+.table-wrap{overflow-x:auto}
+.bar-track{height:7px; background:#0d1e2b; border-radius:4px; overflow:hidden}
+.bar-fill{height:100%; border-radius:4px; background:linear-gradient(90deg,var(--cyan),var(--cyan-dim))}
+.bar-fill.warn{background:linear-gradient(90deg,var(--amber),#c9821f)}
+.bar-fill.bad{background:linear-gradient(90deg,var(--red),#a83636)}
+
+footer{color:var(--text-dim); font-size:.78rem; text-align:center; padding:1rem 0 2rem}
+
+@media (prefers-color-scheme: light){
+  :root{ }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>ODN Loss Budget Calculator</h1>
+  <p>Set the OLT power, fiber attenuation and connector loss, and the hub cable length / splices. The power values are written on each box and update automatically.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="diagram">
+    <svg class="topo" viewBox="0 0 1140 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ODN topology: OLT, Hub Box 1:2, three Sub Boxes 1:9 and an End Box 1:8"><style>.t-b{font:700 15px "Segoe UI",Calibri,Arial,sans-serif;fill:#111}.t-n{font:500 15px "Segoe UI",Calibri,Arial,sans-serif;fill:#111}</style><rect x="44" y="34" width="50" height="116" rx="12" fill="none" stroke="#1ea7e6" stroke-width="2.2"/><text x="69" y="98" text-anchor="middle" class="t-b" style="font-size:16px">OLT</text><line x1="94" y1="87" x2="148" y2="87" stroke="#1ea7e6" stroke-width="2"/><rect x="146" y="33" width="152" height="157" rx="14" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-dasharray="7 5"/><text x="222.0" y="24" text-anchor="middle" class="t-b">HUB Box</text><rect x="148" y="81" width="17" height="13" fill="#1ea7e6"/><rect x="151" y="84" width="11" height="7" fill="#e60000"/><line x1="165" y1="87" x2="193" y2="87" stroke="#1ea7e6" stroke-width="2"/><polygon points="193,87 245,60 245,114" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-linejoin="round"/><text x="213" y="93" text-anchor="middle" class="t-n">1:2</text><line x1="245" y1="76" x2="284" y2="76" stroke="#1ea7e6" stroke-width="2"/><rect x="284" y="69" width="14" height="14" fill="#1ea7e6"/><line x1="245" y1="98" x2="284" y2="98" stroke="#1ea7e6" stroke-width="2"/><rect x="284" y="91" width="14" height="14" fill="#1ea7e6"/><polyline points="298,76 322,76 322,87 340,87" fill="none" stroke="#1ea7e6" stroke-width="2"/><polygon points="332,82 342,87 332,92" fill="#1ea7e6"/><rect x="346" y="33" width="152" height="157" rx="14" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-dasharray="7 5"/><text x="422.0" y="24" text-anchor="middle" class="t-b">Sub Box</text><rect x="348" y="79" width="17" height="13" fill="#1ea7e6"/><rect x="351" y="82" width="11" height="7" fill="#e60000"/><line x1="365" y1="85" x2="371" y2="85" stroke="#1ea7e6" stroke-width="2"/><polygon points="370,85 413,57 413,113" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-linejoin="round"/><text x="378" y="56" text-anchor="middle" class="t-n">1:9</text><line x1="413" y1="60" x2="486" y2="60" stroke="#1ea7e6" stroke-width="2"/><rect x="486" y="53" width="14" height="14" fill="#1ea7e6"/><polyline points="413,66.0 478.0,66.0 478.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,72.4 471.5,72.4 471.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,78.8 465.0,78.8 465.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,85.2 458.5,85.2 458.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,91.6 452.0,91.6 452.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,98.0 445.5,98.0 445.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,104.4 439.0,104.4 439.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="413,110.8 432.5,110.8 432.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="500,60 518,60 518,85 544,85" fill="none" stroke="#f5b400" stroke-width="2"/><polygon points="540,80 549,85 540,90" fill="#f5b400"/><rect x="550" y="33" width="152" height="157" rx="14" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-dasharray="7 5"/><text x="626.0" y="24" text-anchor="middle" class="t-b">Sub Box</text><rect x="552" y="79" width="17" height="13" fill="#1ea7e6"/><rect x="555" y="82" width="11" height="7" fill="#e60000"/><line x1="569" y1="85" x2="575" y2="85" stroke="#1ea7e6" stroke-width="2"/><polygon points="574,85 617,57 617,113" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-linejoin="round"/><text x="582" y="56" text-anchor="middle" class="t-n">1:9</text><line x1="617" y1="60" x2="690" y2="60" stroke="#1ea7e6" stroke-width="2"/><rect x="690" y="53" width="14" height="14" fill="#1ea7e6"/><polyline points="617,66.0 682.0,66.0 682.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,72.4 675.5,72.4 675.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,78.8 669.0,78.8 669.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,85.2 662.5,85.2 662.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,91.6 656.0,91.6 656.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,98.0 649.5,98.0 649.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,104.4 643.0,104.4 643.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="617,110.8 636.5,110.8 636.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="704,60 722,60 722,85 748,85" fill="none" stroke="#f5b400" stroke-width="2"/><polygon points="744,80 753,85 744,90" fill="#f5b400"/><rect x="754" y="33" width="152" height="157" rx="14" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-dasharray="7 5"/><text x="830.0" y="24" text-anchor="middle" class="t-b">Sub Box</text><rect x="756" y="79" width="17" height="13" fill="#1ea7e6"/><rect x="759" y="82" width="11" height="7" fill="#e60000"/><line x1="773" y1="85" x2="779" y2="85" stroke="#1ea7e6" stroke-width="2"/><polygon points="778,85 821,57 821,113" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-linejoin="round"/><text x="786" y="56" text-anchor="middle" class="t-n">1:9</text><line x1="821" y1="60" x2="894" y2="60" stroke="#1ea7e6" stroke-width="2"/><rect x="894" y="53" width="14" height="14" fill="#1ea7e6"/><polyline points="821,66.0 886.0,66.0 886.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,72.4 879.5,72.4 879.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,78.8 873.0,78.8 873.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,85.2 866.5,85.2 866.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,91.6 860.0,91.6 860.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,98.0 853.5,98.0 853.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,104.4 847.0,104.4 847.0,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="821,110.8 840.5,110.8 840.5,196" fill="none" stroke="#1ea7e6" stroke-width="2"/><polyline points="908,60 926,60 926,85 952,85" fill="none" stroke="#f5b400" stroke-width="2"/><polygon points="948,80 957,85 948,90" fill="#f5b400"/><rect x="958" y="33" width="142" height="157" rx="14" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-dasharray="7 5"/><text x="1029.0" y="24" text-anchor="middle" class="t-b">End Box</text><rect x="960" y="79" width="17" height="13" fill="#1ea7e6"/><rect x="963" y="82" width="11" height="7" fill="#e60000"/><polyline points="977,85 1058,85 1058,100" fill="none" stroke="#1ea7e6" stroke-width="2"/><polygon points="1058,100 1092,140 1024,140" fill="none" stroke="#1ea7e6" stroke-width="2.2" stroke-linejoin="round"/><text x="1058" y="136" text-anchor="middle" class="t-n">1:8</text><line x1="1030.0" y1="140" x2="1030.0" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1038.6" y1="140" x2="1038.6" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1047.2" y1="140" x2="1047.2" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1055.8" y1="140" x2="1055.8" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1064.4" y1="140" x2="1064.4" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1073.0" y1="140" x2="1073.0" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1081.6" y1="140" x2="1081.6" y2="196" stroke="#1ea7e6" stroke-width="2"/><line x1="1090.2" y1="140" x2="1090.2" y2="196" stroke="#1ea7e6" stroke-width="2"/></svg>
+    <span class="diagram-caption">Network topology this calculator is based on</span>
+  </div>
+
+<div class="settings" id="globalSettings">
+    <div class="field">
+      <label>OLT Tx power (dBm)</label>
+      <input type="number" id="g_tx" value="5" step="0.1">
+    </div>
+    <div class="field">
+      <label>Fiber attenuation (dB/km)</label>
+      <input type="number" id="g_fiber" value="0.22" step="0.01">
+    </div>
+    <div class="field">
+      <label>Connector loss, each (dB)</label>
+      <input type="number" id="g_conn" value="0.25" step="0.01">
+    </div>
+  </div>
+
+  <div class="chain">
+    <div class="chain-row" id="boxesRow"></div>
+  </div>
+
+  <div class="summary">
+    <h2>Summary per box</h2>
+    <div class="table-wrap"><table>
+      <thead>
+        <tr><th>Box</th><th>Power at 70% branch (dBm)</th><th>Power at customers (dBm)</th></tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table></div>
+  </div>
+
+  <footer>Fixed values from the drawing: hub splitter 1:2 = 3.8 dB, 70% branch = 2 dB, customer branch (30% + 1:8) = 16.1 dB, end box 1:8 = 10.3 dB. One connector at each box input and one at each output. Splice loss is taken as 0.1 dB each.</footer>
+</div>
+
+<script>
+const SPLICE_LOSS = 0.1;
+const B='#1ea7e6';
+const boxDefs=[
+  {id:'hub', title:'HUB',             kind:'hub'},
+  {id:'s1',  title:'Box 10 ports,S1', kind:'sub'},
+  {id:'s2',  title:'Box 10 ports,S2', kind:'sub'},
+  {id:'s3',  title:'Box 10 ports,S3', kind:'sub'},
+  {id:'s4',  title:'Box 9 ports,S4',  kind:'end'},
+];
+const HUB_LOSS=3.8, THRU_LOSS=2, DROP_LOSS=16.1, END_LOSS=10.3;
+
+const conn=(x,y,id)=>`<rect ${id?`id="${id}" `:''}x="${x}" y="${y}" width="17" height="13" fill="${B}"/><rect x="${x+3}" y="${y+3}" width="11" height="7" fill="#e60000"/>`;
+const sq=(x,y,id)=>`<rect ${id?`id="${id}" `:''}x="${x}" y="${y}" width="14" height="14" fill="${B}"/>`;
+const ln=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${B}" stroke-width="1.8"/>`;
+const pl=(pts)=>`<polyline points="${pts}" fill="none" stroke="${B}" stroke-width="1.8"/>`;
+const tri=(pts)=>`<polygon points="${pts}" fill="#0d1e2b" stroke="${B}" stroke-width="2" stroke-linejoin="round"/>`;
+const pill=(cx,y,w,id)=>`<rect class="pill" x="${cx-w/2}" y="${y}" width="${w}" height="24" rx="6"/><text class="t-pwr" x="${cx}" y="${y+16.5}" id="${id}">—</text>`;
+
+// Sub box drawing (same as the reference): red connector -> 1:9 triangle -> top line to blue square, 8 lines down
+function drawSub(id){
+  let s=conn(0,73,'cn_'+id)+`<text class="t-in" x="0" y="52" id="in_${id}">—</text>`
+    +ln(17,80,30,80)+tri('30,80 92,42 92,118')
+    +`<text class="t-n" x="66" y="84" text-anchor="middle">1:9</text>`
+    +ln(92,52,214,52)+sq(214,45,'sq_'+id)
+    +pill(156,2,112,'thru_'+id)
+    +`<text class="t-loss" x="100" y="40">70% · 2.00 dB</text>`;
+  for(let k=0;k<8;k++){
+    const y=(62+k*5.5).toFixed(1), x=200-k*9;
+    s+=pl(`92,${y} ${x},${y} ${x},222`);
+  }
+  s+=`<text class="t-loss" x="0" y="150">30% · 16.10 dB</text>`
+    +pill(58,158,116,'drop_'+id)
+    +`<text class="t-g" x="0" y="204">8 users · at box</text>`;
+  return `<svg class="drw" viewBox="0 0 268 224">${s}</svg>`;
+}
+function drawHub(){
+  const s=conn(0,73,'cn_hub')+`<text class="t-in" x="0" y="52" id="in_hub">—</text>`
+    +ln(17,80,30,80)+tri('30,80 92,46 92,114')
+    +`<text class="t-n" x="64" y="84" text-anchor="middle">1:2</text>`
+    +ln(92,58,200,58)+sq(200,51,'sq_hub')
+    +ln(92,102,200,102)+sq(200,95)
+    +pill(156,2,112,'thru_hub')+`<text class="t-loss" x="100" y="50">3.80 dB</text>`
+    +`<text class="t-g" x="100" y="76">to Box S1</text>`
+    +`<text class="t-loss" x="100" y="94">3.80 dB</text>`+pill(156,112,112,'thru_hub_b');
+  return `<svg class="drw" viewBox="0 0 268 140">${s}</svg>`;
+}
+function drawEnd(){
+  let s=conn(0,73,'cn_s4')+`<text class="t-in" x="0" y="52" id="in_s4">—</text>`
+    +pl('17,80 90,80 90,108')+tri('90,108 128,166 52,166')
+    +`<text class="t-n" x="90" y="160" text-anchor="middle">1:8</text>`
+    +`<text class="t-loss" x="102" y="100">10.30 dB</text>`;
+  for(let k=0;k<8;k++){ const x=(58+k*7.6).toFixed(1); s+=ln(x,166,x,190); }
+  s+=pill(90,198,116,'drop_s4')+`<text class="t-g" x="90" y="244" text-anchor="middle">8 users · at box</text>`;
+  return `<svg class="drw" viewBox="0 0 268 252">${s}</svg>`;
+}
+
+const row=document.getElementById('boxesRow');
+boxDefs.forEach((b,i)=>{
+  if(i>0){ const sp=document.createElement('div'); sp.className='link'; row.appendChild(sp); }
+  const box=document.createElement('div'); box.className='box';
+  box.innerHTML=`<h2>${b.title}</h2>`
+    +(b.kind==='hub'?`<div class="two">
+        <div class="row"><label>Cable length (km)</label><input type="number" id="hub_len" value="3" step="0.05"></div>
+        <div class="row"><label>Splice count</label><input type="number" id="hub_splice" value="1" step="1"></div>
+      </div>
+      <div class="row"><label>Uplink splices count</label><input type="number" id="hub_uplink" value="0" step="1" min="0"></div>`:'')
+    +(b.kind==='hub'?drawHub():b.kind==='sub'?drawSub(b.id):drawEnd());
+  row.appendChild(box);
+});
+
+
+// Draw the real wires from each box's blue output square to the next box's red input connector
+const PAIRS=[['hub','s1','#1ea7e6'],['s1','s2','#f2a93c'],['s2','s3','#f2a93c'],['s3','s4','#f2a93c']];
+function layoutLinks(){
+  const old=document.getElementById('linkLayer'); if(old) old.remove();
+  const R=row.getBoundingClientRect();
+  const rel=(el)=>{const r=el.getBoundingClientRect(); return {l:r.left-R.left+row.scrollLeft, r:r.right-R.left+row.scrollLeft, cy:(r.top+r.bottom)/2-R.top};};
+  const cv=document.getElementById('g_conn').value||'0.25';
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.id='linkLayer'; svg.setAttribute('width',R.width); svg.setAttribute('height',R.height);
+  svg.style.cssText='position:absolute;left:0;top:0;pointer-events:none;overflow:visible';
+  let out='';
+  PAIRS.forEach(([a,b,col],i)=>{
+    const s=rel(document.getElementById('sq_'+a)), c=rel(document.getElementById('cn_'+b));
+    const cardA=document.getElementById('sq_'+a).closest('.box').getBoundingClientRect();
+    const gx=cardA.right-R.left+row.scrollLeft+26;           // vertical run inside the gap
+    const tip=c.l-2;
+    out+=`<polyline points="${s.r},${s.cy} ${gx},${s.cy} ${gx},${c.cy} ${tip-8},${c.cy}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>`
+      +`<polygon points="${tip-9},${c.cy-5} ${tip},${c.cy} ${tip-9},${c.cy+5}" fill="${col}"/>`;
+    const x1=s.r+28, x2=tip-30;
+    out+=`<circle cx="${x1}" cy="${s.cy}" r="5" fill="#0d1e2b" stroke="#6ad7ff" stroke-width="1.8"/>`
+      +`<circle cx="${x2}" cy="${c.cy}" r="5" fill="#0d1e2b" stroke="#6ad7ff" stroke-width="1.8"/>`
+      +`<text class="lk-lbl" x="${x1}" y="${s.cy-10}" id="lk_${i}_a">${cv} dB</text>`
+      +`<text class="lk-lbl" x="${x2}" y="${c.cy-10}" id="lk_${i}_b">${cv} dB</text>`;
+  });
+  svg.innerHTML=out; row.appendChild(svg);
+}
+
+function num(id){ const v=parseFloat(document.getElementById(id).value); return isNaN(v)?0:v; }
+function dbm(x){ return (x>=0?'+':'') + x.toFixed(2) + ' dBm'; }
+function set(id,t){ const e=document.getElementById(id); if(e) e.textContent=t; }
+
+function calc(){
+  const tx=num('g_tx'), fiber=num('g_fiber'), conn=num('g_conn');
+  const len=num('hub_len'), spl=num('hub_splice')+num('hub_uplink');
+  for(let i=0;i<4;i++){ set(`lk_${i}_a`,conn.toFixed(2)+' dB'); set(`lk_${i}_b`,conn.toFixed(2)+' dB'); }
+
+  const hubIn=tx-len*fiber-spl*SPLICE_LOSS, hubOut=hubIn-HUB_LOSS;
+  set('in_hub',dbm(hubIn)); set('thru_hub',dbm(hubOut)); set('thru_hub_b',dbm(hubOut));
+
+  const summary=[{title:'HUB',thru:hubOut,drop:null}];
+  let cum=hubOut;
+  ['s1','s2','s3'].forEach((id,i)=>{
+    const inp=cum-2*conn, thru=inp-THRU_LOSS, drop=inp-DROP_LOSS;
+    set('in_'+id,dbm(inp)); set('thru_'+id,dbm(thru)); set('drop_'+id,dbm(drop));
+    summary.push({title:boxDefs[i+1].title,thru,drop}); cum=thru;
+  });
+  const inEnd=cum-2*conn, dropEnd=inEnd-END_LOSS;
+  set('in_s4',dbm(inEnd)); set('drop_s4',dbm(dropEnd));
+  summary.push({title:boxDefs[4].title,thru:null,drop:dropEnd});
+
+  document.getElementById('summaryBody').innerHTML=summary.map(s=>`<tr>
+      <td>${s.title}</td>
+      <td class="num">${s.thru===null?'—':dbm(s.thru)}</td>
+      <td class="num">${s.drop===null?'—':dbm(s.drop)}</td>
+    </tr>`).join('');
+}
+layoutLinks();
+window.addEventListener('resize',()=>{layoutLinks(); calc();});
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{layoutLinks(); calc();});
+document.addEventListener('input',calc);
+document.addEventListener('change',calc);
+calc();
+</script>
+</body>
+</html>
